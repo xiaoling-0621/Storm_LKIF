@@ -1,0 +1,17 @@
+era5_dir: data/era5
+intensity_dir: data/intensity
+intensity_split: train
+storm_select_mode: single
+selected_storm_id: "1950:BILLIE"
+random_n: 3
+random_seed: 42
+eof_mode: fixed_k
+pc_k: 3
+variance_threshold: 0.95
+liang_dt: 6
+liang_n_step: 1
+liang_significance_z: 2.56
+min_storm_length: 12
+max_eof_plots: 10
+eof_map_components: 3
+results_dir: results
