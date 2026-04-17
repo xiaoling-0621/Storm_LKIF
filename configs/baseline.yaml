@@ -5,9 +5,13 @@ storm_select_mode: single
 selected_storm_id: "1950:BILLIE"
 random_n: 3
 random_seed: 42
-eof_mode: fixed_k
+target_variable: wind
+target_mode: delta
+eof_fit_scope: global_selected
+causality_scope: global_segmented
+eof_mode: variance_threshold
 pc_k: 3
-variance_threshold: 0.95
+variance_threshold: 1
 liang_dt: 6
 liang_n_step: 1
 liang_significance_z: 2.56

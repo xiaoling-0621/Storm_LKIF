@@ -24,6 +24,11 @@ INTENSITY_COLUMNS = [
     "storm_name",
 ]
 
+TARGET_COLUMN_MAP = {
+    "wind": "wind_like_feature",
+    "pressure": "pressure_like_feature",
+}
+
 
 @dataclass
 class StormRecord:
@@ -40,7 +45,8 @@ class AlignedStormData:
     storm_name: str
     timestamps: List[pd.Timestamp]
     era_files: List[Path]
-    intensity_values: np.ndarray
+    target_values: np.ndarray
+    target_variable: str
 
 
 def normalize_storm_name(name: str) -> str:
@@ -49,6 +55,31 @@ def normalize_storm_name(name: str) -> str:
 
 def make_storm_id(year: str, storm_name: str) -> str:
     return f"{year}:{normalize_storm_name(storm_name)}"
+
+
+def canonicalize_storm_id(value: str) -> str:
+    raw = value.strip()
+    if ":" in raw:
+        year, storm_name = raw.split(":", 1)
+        return make_storm_id(year, storm_name)
+
+    match = INTENSITY_STEM_RE.match(raw)
+    if match:
+        year, storm_name = match.groups()
+        return make_storm_id(year, storm_name)
+
+    compact_match = re.match(r"^(\d{4})([A-Za-z0-9_()\-]+)$", raw)
+    if compact_match:
+        year, storm_name = compact_match.groups()
+        return make_storm_id(year, storm_name)
+
+    return raw
+
+
+def get_target_column(target_variable: str) -> str:
+    if target_variable not in TARGET_COLUMN_MAP:
+        raise ValueError(f"Unsupported target_variable: {target_variable}")
+    return TARGET_COLUMN_MAP[target_variable]
 
 
 def extract_era_timestamp(path: Path) -> pd.Timestamp:
@@ -127,8 +158,7 @@ def infer_intensity_columns(df: pd.DataFrame) -> dict:
         "candidate_numeric_columns": numeric_cols,
         "note": (
             "Columns 4/5 are inferred normalized pressure/wind features; "
-            "column 5 is used as baseline intensity because it increases when storms intensify "
-            "while column 4 typically decreases, matching wind/pressure behavior."
+            "column 5 is used as wind-like intensity and column 4 as pressure-like intensity."
         ),
     }
 
@@ -161,9 +191,12 @@ def select_storm_ids(
     if mode == "single":
         if not selected_storm_id:
             raise ValueError("selected_storm_id is required when mode='single'")
-        if selected_storm_id not in storm_ids:
-            raise ValueError(f"Storm {selected_storm_id} not found")
-        return [selected_storm_id]
+        canonical_storm_id = canonicalize_storm_id(selected_storm_id)
+        if canonical_storm_id not in storm_ids:
+            raise ValueError(
+                f"Storm {selected_storm_id} not found. Try format like '1950:BILLIE', '1950BILLIE', or 'WP1950BSTBILLIE'."
+            )
+        return [canonical_storm_id]
     if mode == "random_n":
         if not random_n or random_n <= 0:
             raise ValueError("random_n must be positive when mode='random_n'")
@@ -173,15 +206,16 @@ def select_storm_ids(
     raise ValueError(f"Unsupported storm selection mode: {mode}")
 
 
-def align_storm(record: StormRecord, min_storm_length: int) -> AlignedStormData | None:
+def align_storm(record: StormRecord, min_storm_length: int, target_variable: str) -> AlignedStormData | None:
     era_times = set(record.era_files.keys())
     intensity_df = record.intensity.copy()
     common_times = sorted(set(intensity_df["timestamp"]) & era_times)
     if len(common_times) < min_storm_length:
         return None
-    aligned_intensity = (
+    target_column = get_target_column(target_variable)
+    aligned_target = (
         intensity_df.set_index("timestamp")
-        .loc[common_times, "wind_like_feature"]
+        .loc[common_times, target_column]
         .astype(float)
         .to_numpy()
     )
@@ -190,7 +224,8 @@ def align_storm(record: StormRecord, min_storm_length: int) -> AlignedStormData 
         storm_name=record.storm_name,
         timestamps=common_times,
         era_files=[record.era_files[timestamp] for timestamp in common_times],
-        intensity_values=aligned_intensity,
+        target_values=aligned_target,
+        target_variable=target_variable,
     )
 
 

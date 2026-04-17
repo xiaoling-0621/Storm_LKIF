@@ -4,15 +4,23 @@
 - ERA5 sample file: `data\era5\1972\Rita\TCND_Rita_1972070500_sst_z_u_v.nc`
 - Sample storm_id format: `1972:RITA`
 - Intensity timestamp column: `timestamp`
-- Inferred wind column: `wind_like_feature`
-- Inferred pressure column: `pressure_like_feature`
-- Inference note: Columns 4/5 are inferred normalized pressure/wind features; column 5 is used as baseline intensity because it increases when storms intensify while column 4 typically decreases, matching wind/pressure behavior.
+- Target variable: `wind` -> `wind_like_feature`
+- Target mode: `delta`
+- EOF fit scope: `global_selected`
+- Causality scope: `global_segmented`
+- Inference note: Columns 4/5 are inferred normalized pressure/wind features; column 5 is used as wind-like intensity and column 4 as pressure-like intensity.
 
 ## ERA5 Structure
 
 - Dims: `{'time': 1, 'pressure_level': 4, 'latitude': 81, 'longitude': 81}`
 - Variables: `['u', 'v', 'z', 'sst']`
 - Expanded channels: `['u_200', 'u_500', 'u_850', 'u_925', 'v_200', 'v_500', 'v_850', 'v_925', 'z_200', 'z_500', 'z_850', 'z_925', 'sst']`
+
+## Delta Target Alignment
+
+- `delta` mode uses `target[t+1] - target[t]`.
+- ERA5 features are truncated to the first `T-1` timestamps.
+- The mapping is `ERA5(t) -> target(t+1) - target(t)`.
 
 ## Storm Counts
 
